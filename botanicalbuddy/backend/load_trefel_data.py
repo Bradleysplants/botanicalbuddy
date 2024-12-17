@@ -10,7 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'botanicalbuddy.settings')
 django.setup()
 
 from backend.models import PlantData
-from backend.pydanticai import get_embedding
+from backend.utils import get_embedding  # Import from backend.utils
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ if not TREFLE_API_KEY:
     raise ValueError("TREFLE_API_KEY environment variable not found.")
 
 BASE_URL = "https://trefle.io/api/v1/plants"
+
 
 def fetch_plant_data(page: int = 1) -> List[Dict[str, Any]]:
     """Fetches plant data from the Trefle API."""
@@ -32,6 +33,7 @@ def fetch_plant_data(page: int = 1) -> List[Dict[str, Any]]:
         logger.error(f"Error fetching data from Trefle API: {e}")
         return []
 
+
 def fetch_plant_details(plant_id: int) -> Dict[str, Any]:
     """Fetches detailed information for a specific plant from Trefle."""
     url = f"{BASE_URL}/{plant_id}?token={TREFLE_API_KEY}"
@@ -42,6 +44,7 @@ def fetch_plant_details(plant_id: int) -> Dict[str, Any]:
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching plant details for ID {plant_id}: {e}")
         return {}
+
 
 def save_plant_to_db(plant_data: Dict[str, Any]):
     """Saves plant data to the database, including generating and storing embeddings."""
@@ -55,7 +58,9 @@ def save_plant_to_db(plant_data: Dict[str, Any]):
             try:
                 vector_data = get_embedding(description)
             except Exception as e:
-                logger.error(f"Failed to generate embedding for plant {details.get('common_name')}: {e}")
+                logger.error(
+                    f"Failed to generate embedding for plant {details.get('common_name')}: {e}"
+                )
                 vector_data = None
         else:
             vector_data = None
@@ -81,8 +86,7 @@ def save_plant_to_db(plant_data: Dict[str, Any]):
                 'water_requirements': details.get("water_requirements"),
                 'sunlight_requirements': details.get("sunlight_requirements"),
                 'vector_data': vector_data
-            }
-        )
+            })
     except Exception as e:
         logger.error(f"Error saving plant to database: {e}")
 
@@ -104,6 +108,8 @@ def main():
 
     print(f"Finished loading plant data. Total Plants loaded: {total_plants}")
 
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
     main()

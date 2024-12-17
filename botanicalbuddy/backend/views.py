@@ -1,3 +1,4 @@
+# backend/views.py
 import logging
 import json
 import os
@@ -12,7 +13,9 @@ from django.http import JsonResponse
 from asgiref.sync import sync_to_async
 from django.db.models import F, Q
 import spacy
-
+import numpy as np
+from .serializers import PlantDataSerializer  # Import your serializer
+from .serializers import QAEntrySerializer
 
 from .models import PlantData as DjangoPlantData, QAEntry
 from .pydanticai import PlantData, Agent, InferenceResult
@@ -45,7 +48,8 @@ async def get_similar_qa_entry(question_vector, plant, threshold=0.75):
     """
     qa_entries = await QAEntry.objects.filter(plant=plant).aall()
     for entry in qa_entries:
-        similarity = calculate_cosine_similarity(question_vector, entry.question_vector)
+        similarity = calculate_cosine_similarity(question_vector,
+                                                entry.question_vector)
         if similarity >= threshold:
             return entry
     return None
@@ -56,13 +60,21 @@ def create_qa_entry(plant, question_text, question_vector, answer_text):
     """
     Creates a new Q&A entry in the database.
     """
-    QAEntry.objects.create(
-        plant=plant,
-        question_text=question_text,
-        question_vector=question_vector,
-        answer_text=answer_text
-    )
+    QAEntry.objects.create(plant=plant,
+                           question_text=question_text,
+                           question_vector=question_vector,
+                           answer_text=answer_text)
 
+@api_view(['GET'])
+def session_view(request):
+    # Access session data
+    username = request.session.get('username')
+
+    # Return session data or an appropriate response
+    if username:
+        return Response({'username': username})
+    else:
+        return Response({'message': 'No session data found'})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -81,7 +93,8 @@ async def upload_image(request):
 
             # Preprocess the image using Pillow (PIL)
             image = image.open(image_file)
-            image = image.resize((224, 224))  # Example resize, adjust as needed
+            image = image.resize(
+                (224, 224))  # Example resize, adjust as needed
             # ... other preprocessing steps (e.g., normalization) ...
 
             # Prepare the image for sending to the OpenAI API
@@ -91,23 +104,40 @@ async def upload_image(request):
 
             # Make a request to your OpenAI model API
             model_api_url = "your_openai_model_api_endpoint"  # Replace with your actual endpoint
-            response = requests.post(model_api_url, files={'image': image_bytes})
+            response = requests.post(model_api_url,
+                                     files={'image': image_bytes})
             response.raise_for_status()  # Raise an exception for bad status codes
 
             # Parse the prediction results
             prediction_results = response.json()
             # ... extract the relevant prediction information (e.g., disease label, probability) ...
 
-            return JsonResponse({'status': 'success', 'prediction': prediction_results})
+            return JsonResponse(
+                {'status': 'success',
+                 'prediction': prediction_results})
 
         except DjangoPlantData.DoesNotExist:
             return JsonResponse({'error': 'Plant not found'}, status=404)
         except requests.exceptions.RequestException as e:
             logger.error(f"Error communicating with the model API: {e}")
-            return JsonResponse({'error': 'Failed to get a prediction from the model'}, status=500)
+            return JsonResponse({
+                'error': 'Failed to get a prediction from the model'
+            },
+                status=500)
         except Exception as e:
             logger.exception(f"An unexpected error occurred in upload_image: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_qa_entry(request, pk):
+    try:
+        qa_entry = QAEntry.objects.get(pk=pk)
+    except QAEntry.DoesNotExist:
+        return Response({'error': 'QA Entry not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = QAEntrySerializer(qa_entry)
+    return Response(serializer.data)
 
 
 @api_view(['POST'])
@@ -119,26 +149,35 @@ async def ask_botanical_question(request):
     try:
         user_query = request.data.get('query', '')
         plant_name = request.data.get('plant_name', '')
-        similarity_threshold = float(os.environ.get("SIMILARITY_THRESHOLD", 0.75))
+        similarity_threshold = float(
+            os.environ.get("SIMILARITY_THRESHOLD", 0.75))
 
         if not user_query:
             logger.warning("Missing 'query' parameter.")
-            return Response({'error': 'Missing query parameter.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Missing query parameter.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if not plant_name:
             logger.warning("Missing 'plant_name' parameter.")
-            return Response({'error': 'Missing plant_name parameter.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Missing plant_name parameter.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        query = Q(common_name__iexact=plant_name) | Q(scientific_name__iexact=plant_name)
+        query = Q(common_name__iexact=plant_name) | Q(
+            scientific_name__iexact=plant_name)
         django_plant = await DjangoPlantData.objects.filter(query).afirst()
         if django_plant is None:
-            plant_names = [plant.common_name for plant in await DjangoPlantData.objects.aall()]
+            plant_names = [
+                plant.common_name
+                for plant in await DjangoPlantData.objects.aall()
+            ]
             closest_match = find_closest_match_nlp(plant_name, plant_names)
             if closest_match:
-                django_plant = await DjangoPlantData.objects.aget(common_name=closest_match)
+                django_plant = await DjangoPlantData.objects.aget(
+                    common_name=closest_match)
             else:
                 logger.warning(f"Plant '{plant_name}' not found.")
-                return Response({'error': f"Plant '{plant_name}' not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': f"Plant '{plant_name}' not found."},
+                                status=status.HTTP_404_NOT_FOUND)
 
         # --- Enhanced NLP ---
         doc = nlp(user_query)
@@ -146,21 +185,21 @@ async def ask_botanical_question(request):
         logger.info(f"Entities identified: {entities}")
 
         # Example: Check if the query is about pests or diseases
-        if any(label in ["PEST", "DISEASE", "SYMPTOM"] for _, label in entities):
+        if any(label in ["PEST", "DISEASE", "SYMPTOM"]
+               for _, label in entities):
             # Assuming you have the prediction results from the upload_image view
             prediction_results = request.data.get('prediction')
 
             # Combine prediction with other information
-            diagnosis = refine_diagnosis(
-                prediction_results,
-                django_plant.common_name,
-                django_plant.common_diseases,
-                django_plant.common_pests,
-                user_query
-            )
+            diagnosis = refine_diagnosis(prediction_results,
+                                        django_plant.common_name,
+                                        django_plant.common_diseases,
+                                        django_plant.common_pests, user_query)
 
             # Use the refined diagnosis in the response
-            response_data = {'answer': f"{diagnosis}"}  # Include the diagnosis in the answer
+            response_data = {
+                'answer': f"{diagnosis}"
+            }  # Include the diagnosis in the answer
 
             # Add information about common diseases and pests for the plant
             response_data['common_diseases'] = django_plant.common_diseases
@@ -171,10 +210,14 @@ async def ask_botanical_question(request):
         question_embedding = get_embedding(user_query)
         if question_embedding is None:
             logger.error("Failed to generate user query embedding.")
-            return Response({'error': 'Failed to generate user query embedding.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                'error': 'Failed to generate user query embedding.'
+            },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Check for similar Q&A entries
-        similar_qa_entry = await get_similar_qa_entry(question_embedding, django_plant, similarity_threshold)
+        similar_qa_entry = await get_similar_qa_entry(
+            question_embedding, django_plant, similarity_threshold)
         if similar_qa_entry:
             logger.info("Found similar Q&A entry in the database.")
             return Response({'answer': similar_qa_entry.answer_text})
@@ -189,26 +232,39 @@ async def ask_botanical_question(request):
         if isinstance(inference_result, InferenceResult):
             answer = inference_result.answer
             # Create a new Q&A entry asynchronously
-            await create_qa_entry(
-                plant=django_plant,
-                question_text=user_query,
-                question_vector=question_embedding,
-                answer_text=answer
-            )
+            await create_qa_entry(plant=django_plant,
+                                   question_text=user_query,
+                                   question_vector=question_embedding,
+                                   answer_text=answer)
             return Response({'answer': answer})
         else:
             logger.error(f"Inference failed: {inference_result}")
-            return Response({'error': 'Failed to generate an answer.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Failed to generate an answer.'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     except json.JSONDecodeError:
         logger.error(f"Invalid JSON data received: {request.body}")
-        return Response({'error': 'Invalid JSON data in request body.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Invalid JSON data in request body.'},
+                        status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception(f"An unexpected error occurred: {e}")
-        return Response({'error': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': 'An unexpected error occurred.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_plant_data(request, pk):
+    try:
+        plant = PlantData.objects.get(pk=pk)
+    except PlantData.DoesNotExist:
+        return Response({'error': 'Plant not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = PlantDataSerializer(plant)
+    return Response(serializer.data)
 
 
-def refine_diagnosis(prediction, plant_name, common_diseases, common_pests, user_query):
+def refine_diagnosis(prediction, plant_name, common_diseases, common_pests,
+                    user_query):
     """
     Refines the initial prediction by combining it with other information.
     """
@@ -236,16 +292,30 @@ def refine_diagnosis(prediction, plant_name, common_diseases, common_pests, user
     # --- Symptom Analysis ---
     # Use spaCy to extract symptom keywords from the user query
     doc = nlp(user_query)
-    symptom_keywords = [ent.text for ent in doc.ents if ent.label_ == "SYMPTOM"]
+    symptom_keywords = [
+        ent.text for ent in doc.ents if ent.label_ == "SYMPTOM"
+    ]
     if symptom_keywords:
         refined_diagnosis += f"You mentioned symptoms like {', '.join(symptom_keywords)}. "
         # ... (You can add logic here to cross-reference symptoms with diseases/pests) ...
 
     # --- Additional Advice ---
     # (If no clear diagnosis can be made)
-    if prediction['disease_probability'] < 0.8 and prediction['pest_probability'] < 0.8:
+    if prediction['disease_probability'] < 0.8 and prediction[
+            'pest_probability'] < 0.8:
         refined_diagnosis += "To help me diagnose the issue more accurately, " \
                              "could you please provide more details about the symptoms " \
                              "or any recent changes in the plant's environment?"
 
     return refined_diagnosis
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])  # Requires authentication
+def create_plant_data(request):
+    if request.method == 'POST':
+        serializer = PlantDataSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,11 +1,12 @@
+# backend/serializers.py
 from rest_framework import serializers
-from .models import User, VectorDatabase, PlantData
+from .models import User, VectorDatabase, PlantData, QAEntry
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'password']
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = '__all__'  # Include all fields from the User model
+        extra_kwargs = {'password': {'write_only': True}}  # Exclude password from responses
 
 class VectorDatabaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,4 +16,9 @@ class VectorDatabaseSerializer(serializers.ModelSerializer):
 class PlantDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlantData
-        fields = ['id', 'plant_name', 'scientific_name', 'description', 'care_instructions', 'soil_type', 'water_requirements', 'sunlight_requirements', 'created_at']
+        fields = '__all__'  # Include all fields from the PlantData model
+        
+class QAEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QAEntry
+        fields = '__all__'  # Or explicitly list the fields
