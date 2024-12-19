@@ -1,35 +1,67 @@
 <template>
-    <div>
-      <header class="bg-gray-800 text-white p-4">
-        <div class="container mx-auto flex justify-between items-center">
-          <NuxtLink to="/" class="text-xl font-bold">Botanical Buddy</NuxtLink>
-          <nav>
-            <ul class="flex space-x-4">
-              <li v-if="$auth.loggedIn"><NuxtLink to="/chat">Chat</NuxtLink></li>
-              <li v-if="!$auth.loggedIn"><NuxtLink to="/login">Login</NuxtLink></li>
-              <li v-if="!$auth.loggedIn"><NuxtLink to="/signup">Signup</NuxtLink></li>
-              <li v-if="$auth.loggedIn"><Logout /></li> 
-            </ul>
-          </nav>
-        </div>
-      </header>
-      <main class="container mx-auto p-4">
-        <Nuxt />
-      </main>
-      <footer class="bg-gray-200 text-gray-600 p-4 mt-8">
-        <div class="container mx-auto text-center">
-          &copy; 2023 Botanical Buddy
-        </div>
-      </footer>
-    </div>
-  </template>
-  
-  <script>
-  import Logout from '~/components/Logout.vue'; // Assuming you have the Logout component
-  
-  export default {
-    components: {
-      Logout,
+  <v-app>
+    <AuthHandler @auth-ready="handleAuthReady" /> 
+
+    <v-navigation-drawer v-model="drawer" location="left" temporary>
+      <v-list>
+        <v-list-item :to="{ name: 'index' }" prepend-icon="mdi-home">
+          <v-list-item-title>Home</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="authReady && !$auth.loggedIn" :to="{ name: 'login' }" prepend-icon="mdi-login">
+          <v-list-item-title>Login</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="authReady && $auth.loggedIn" :to="{ name: 'profile' }" prepend-icon="mdi-account">
+          <v-list-item-title>Profile</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="authReady && $auth.loggedIn" @click="logout" prepend-icon="mdi-logout">
+          <v-list-item-title>Logout</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-app-bar>
+      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-toolbar-title>Botanical Buddy</v-toolbar-title>
+    </v-app-bar>
+
+    <v-main>
+      <v-container fluid>
+        <NuxtPage />
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+
+<script>
+export default {
+  components: {
+    AuthHandler: () => import('@/components/AuthHandler.vue') // Import AuthHandler
+  },
+  data() {
+    return {
+      drawer: false,
+      authReady: false, // Add authReady to data
+    };
+  },
+  methods: {
+    async logout() {
+      await this.$auth.logout();
+      this.$router.push('/');
     },
-  };
-  </script>
+    handleAuthReady() {
+  this.$nextTick(() => { // Update authReady in the next tick
+    this.authReady = true;
+  });
+},
+
+handleAuthReady() {
+  this.$nextTick(() => { // Update authReady in the next tick
+    this.authReady = true;
+  });
+}
+  }
+};
+</script>

@@ -10,6 +10,5 @@ urlpatterns = [
     path('get_plant_data/<int:pk>/', views.get_plant_data, name='get_plant_data'),
     path('create_qa_entry/', views.create_qa_entry, name='create_qa_entry'),
     path('get_qa_entry/<int:pk>/', views.get_qa_entry, name='get_qa_entry'),
-    path('session/', views.session_view, name='session_view'),
     # ... other URL patterns ...
 ]

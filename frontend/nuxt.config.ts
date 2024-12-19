@@ -3,6 +3,20 @@ import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   // ... other config
 
+  // Add the proxy configuration here
+  nitro: {
+    routeRules: {
+      '/api/**': { 
+        proxy: 'http://localhost:8000/api/**' // Proxy all requests under /api to your Django backend
+      },
+      '/session': { 
+        proxy: 'http://localhost:8000/session' // Proxy /session to your Django backend
+      },
+        'api/session': { proxy: 'http://localhost:8000/session' }, 
+
+    }
+  },
+
   modules: [
     '@nuxtjs/tailwindcss',
     '@pinia/nuxt',
@@ -30,9 +44,15 @@ export default defineNuxtConfig({
     yourOrigin: ''
   },
 
+  vite: {
+    ssr: {
+      noExternal: ['vuetify'], 
+    },
+  },
+
 
   build: {
-      transpile: ['@sidebase/nuxt-auth']
+    transpile: ['@sidebase/nuxt-auth']
   },
 
   compatibilityDate: '2024-12-16'

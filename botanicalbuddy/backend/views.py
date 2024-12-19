@@ -6,7 +6,7 @@ from io import BytesIO
 
 import requests  # For making API requests to your model
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse
@@ -66,6 +66,7 @@ def create_qa_entry(plant, question_text, question_vector, answer_text):
                            answer_text=answer_text)
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def session_view(request):
     # Access session data
     username = request.session.get('username')

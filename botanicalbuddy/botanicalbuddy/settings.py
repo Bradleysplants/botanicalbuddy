@@ -149,3 +149,7 @@ LOGGING = {
 }
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 3600  # 1 hour (in seconds)
+SESSION_COOKIE_SECURE = True  # Set to True in production
+SESSION_COOKIE_HTTPONLY = True  # Set to True for security
+SESSION_COOKIE_SAMESITE = 'Lax'  # Adjust as needed for your application

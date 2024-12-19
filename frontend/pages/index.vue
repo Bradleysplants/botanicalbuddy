@@ -1,31 +1,74 @@
 <template>
-    <div class="container mx-auto p-4 text-center">
-      <h1 class="text-4xl font-bold mb-4">Welcome to Botanical Buddy!</h1>
-      <p class="text-lg mb-6">Your AI-powered guide to the world of plants.</p>
-  
-      <div v-if="!$auth.loggedIn" class="mb-4">
-        <NuxtLink to="/signup" class="bg-green-500 hover:bg-green-700 text-white font-medium py-2 px-4 rounded mr-2">Sign Up</NuxtLink>
-        <NuxtLink to="/login" class="bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">Login</NuxtLink>
-      </div>
-  
-      <div v-else>
-        <NuxtLink to="/chat" class="bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">Go to Chat</NuxtLink>
-      </div>
-  
-      <div class="features mt-12">
-        <h2 class="text-2xl font-bold mb-4">Features</h2>
-        <ul class="list-disc list-inside text-left">
-          <li>Ask any plant-related question and get instant answers.</li>
-          <li>Learn about different plant species, their care, and their uses.</li>
-          <li>Diagnose plant diseases and get treatment recommendations.</li>
-          <li>Discover fun facts and interesting information about plants.</li>
-        </ul>
-      </div>
-    </div>
-  </template>
-  
-  <script>
-  export default {
-    // You can add any necessary data or methods here
-  };
-  </script>
+  <v-app>
+    <v-navigation-drawer v-model="drawer" location="left" temporary>
+      <v-list>
+        <v-list-item :to="{ name: 'index' }" prepend-icon="mdi-home">
+          <v-list-item-title>Home</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="!authStore.isAuthenticated" :to="{ name: 'login' }" prepend-icon="mdi-login">
+          <v-list-item-title>Login</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="authStore.isAuthenticated" :to="{ name: 'profile' }" prepend-icon="mdi-account">
+          <v-list-item-title>Profile</v-list-item-title>
+        </v-list-item>
+
+        <v-list-item v-if="authStore.isAuthenticated" @click="logout" prepend-icon="mdi-logout">
+          <v-list-item-title>Logout</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
+    <v-app-bar>
+      <v-app-bar-nav-icon @click="drawer =!drawer"></v-app-bar-nav-icon>
+      <v-toolbar-title>Botanical Buddy</v-toolbar-title>
+    </v-app-bar>
+
+    <v-main>
+      <v-container fluid>
+        <NuxtPage />
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+
+<script>
+import { useAuthStore } from '../stores/auth';
+
+export default {
+  data() {
+    return {
+      drawer: false,
+    };
+  },
+  setup() {
+    const authStore = useAuthStore();
+
+    if (authStore.isAuthenticated) {
+      // Handle the case when the user is already authenticated
+    }
+
+    watch(
+      () => authStore.isAuthenticated,
+      (newValue) => {
+        if (newValue) {
+          // Handle the case when the user becomes authenticated
+        } else {
+          // Handle the case when the user becomes unauthenticated
+        }
+      }
+    );
+
+    return {
+      authStore,
+    };
+  },
+  methods: {
+    async logout() {
+      await this.authStore.logout();
+      this.$router.push('/');
+    },
+  },
+};
+</script>
