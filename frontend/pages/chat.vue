@@ -1,28 +1,49 @@
 <template>
   <div class="container mx-auto p-4">
-    <h2 class="text-2xl font-bold mb-4">Botanical Buddy</h2>
-    <div v-if="chatStore.loading">Loading...</div>
-    <div v-else class="chat-window border border-gray-400 rounded h-96 overflow-y-auto p-4 mb-4">
-      <PlantImage :imageUrl="plantImageUrl" v-if="plantImageUrl" />
-      <div v-for="(message, index) in chatStore.messages" :key="index" class="message mb-2" :class="{ 'user-message': message.isUser }">
-        <pre v-if="typeof message.text === 'object'">{{ message.text }}</pre>
-        <p v-else>{{ message.text }}</p>
-        <UserFeedback v-if="!message.isUser && !isLastMessage(index)" /> 
+    <h2 class="text-2xl font-bold mb-4">Login</h2> 
+    <form @submit.prevent="login" class="space-y-4"> 
+      <div>
+        <label for="username" class="block text-gray-700 font-medium mb-2">Username:</label>
+        <input 
+          type="text" 
+          id="username" 
+          v-model="username" 
+          class="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          aria-label="Username" 
+          aria-required="true" 
+          :aria-invalid="invalidUsername" 
+        >
+        <div v-if="invalidUsername" class="text-red-500 text-sm mt-1" role="alert"> 
+          Please enter a valid username.
+        </div>
       </div>
-      <TypingIndicator :isTyping="isTyping" />
-    </div>
-    <ErrorMessage :message="errorMessage" />
-    <SuggestedQuestions :questions="suggestedQuestions" />
-    <form @submit.prevent="sendMessage">
-      <input type="text" v-model="newMessage" placeholder="Type your message..." class="border border-gray-400 rounded px-3 py-2 w-full">
-      <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded mt-2">Send</button>
+      <div>
+        <label for="password" class="block text-gray-700 font-medium mb-2">Password:</label>
+        <input 
+          type="password" 
+          id="password" 
+          v-model="password" 
+          class="border border-gray-400 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          aria-label="Password" 
+          aria-required="true" 
+          :aria-invalid="invalidPassword" 
+        >
+        <div v-if="invalidPassword" class="text-red-500 text-sm mt-1" role="alert"> 
+          Please enter a valid password.
+        </div>
+      </div>
+      <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">Login</button>
     </form>
+
+    <div class="mt-4">
+      <p class="text-gray-700">Don't have an account? <a href="#" @click.prevent="goToSignup" class="text-blue-500 hover:text-blue-700">Sign up</a></p>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, computed } from 'vue';
-import { useChatStore } from '~/stores/chat';
+import { useChatStore } from '~/stores/chatstore';
 import PlantImage from '~/components/PlantImage.vue';
 import UserFeedback from '~/components/UserFeedback.vue';
 import TypingIndicator from '~/components/TypingIndicator.vue';
@@ -37,6 +58,7 @@ export default {
     ErrorMessage,
     SuggestedQuestions,
   },
+
   setup() {
     const chatStore = useChatStore();
     const newMessage = ref('');

@@ -1,33 +1,38 @@
 <template>
   <v-app>
-    <v-navigation-drawer v-model="drawer" location="left" temporary>
-      <v-list>
-        <v-list-item :to="{ name: 'index' }" prepend-icon="mdi-home">
-          <v-list-item-title>Home</v-list-item-title>
-        </v-list-item>
-
-        <v-list-item v-if="!authStore.isAuthenticated" :to="{ name: 'login' }" prepend-icon="mdi-login">
-          <v-list-item-title>Login</v-list-item-title>
-        </v-list-item>
-
-        <v-list-item v-if="authStore.isAuthenticated" :to="{ name: 'profile' }" prepend-icon="mdi-account">
-          <v-list-item-title>Profile</v-list-item-title>
-        </v-list-item>
-
-        <v-list-item v-if="authStore.isAuthenticated" @click="logout" prepend-icon="mdi-logout">
-          <v-list-item-title>Logout</v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-navigation-drawer>
-
-    <v-app-bar>
-      <v-app-bar-nav-icon @click="drawer =!drawer"></v-app-bar-nav-icon>
-      <v-toolbar-title>Botanical Buddy</v-toolbar-title>
-    </v-app-bar>
-
     <v-main>
       <v-container fluid>
-        <NuxtPage />
+        <v-row align="center" justify="center">
+          <v-col cols="12" sm="8" md="6" lg="4" xl="3">
+            <v-card class="elevation-12">
+              <v-toolbar color="green" dark flat>
+                <v-toolbar-title>Botanical Buddy</v-toolbar-title>
+              </v-toolbar>
+              <v-card-text>
+                <v-row align="center" justify="center">
+                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
+                    <h1 class="text-center">Welcome to Botanical Buddy</h1>
+                  </v-col>
+                </v-row>
+                <v-row align="center" justify="center">
+                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
+                    <v-img src="https://source.unsplash.com/1600x900/?plants" max-height="300" contain></v-img>
+                  </v-col>
+                </v-row>
+                <v-row align="center" justify="center">
+                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
+                    <p class="text-center">Botanical Buddy is your one-stop-shop for plant advice. Whether you're a seasoned gardener or just starting out, we've got you covered.</p>
+                  </v-col>
+                </v-row>
+                <v-row align="center" justify="center">
+                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
+                    <v-btn color="green" dark @click="$router.push('/Chat')">Chat with our Ai</v-btn>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
       </v-container>
     </v-main>
   </v-app>
@@ -39,9 +44,9 @@ import { useAuthStore } from '../stores/auth';
 export default {
   data() {
     return {
-      drawer: false,
     };
   },
+
   setup() {
     const authStore = useAuthStore();
 
@@ -49,26 +54,43 @@ export default {
       // Handle the case when the user is already authenticated
     }
 
-    watch(
-      () => authStore.isAuthenticated,
-      (newValue) => {
-        if (newValue) {
-          // Handle the case when the user becomes authenticated
-        } else {
-          // Handle the case when the user becomes unauthenticated
-        }
-      }
-    );
-
     return {
       authStore,
     };
   },
-  methods: {
-    async logout() {
-      await this.authStore.logout();
-      this.$router.push('/');
-    },
-  },
 };
 </script>
+
+<style scoped>
+.v-card {
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.v-toolbar {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.v-card-text {
+  padding: 20px;
+}
+
+.v-row {
+  margin-bottom: 20px;
+}
+
+.v-col {
+  padding: 10px;
+}
+
+.v-btn {
+  margin: center;
+  
+}
+
+.v-img {
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+</style>

@@ -1,24 +1,38 @@
 <template>
-  <div>
+  <v-app>
+    <NavBar />
+
+    <v-main v-if="!isLoading">
+      <v-container fluid>
+        <NuxtPage />
+      </v-container>
+    </v-main>
+
     <div v-if="isLoading" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-      <div class="loader"></div> </div>
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
-  </div>
+      <div class="loader"></div>
+    </div>
+  </v-app>
 </template>
 
-<script setup>
-  import { ref, onMounted, onBeforeUnmount } from "vue";
+<script>
+import NavBar from '@/components/NavBar.vue';
 
-  const isLoading = ref(true);
-
-  onMounted(() => {
+export default {
+  components: {
+    NavBar,
+  },
+  data() {
+    return {
+      isLoading: true,
+    };
+  },
+  mounted() {
     // Simulate a loading delay (replace with actual loading logic if needed)
     setTimeout(() => {
-      isLoading.value = false;
+      this.isLoading = false; // Remove .value 
     }, 1000);
-  });
+  },
+};
 </script>
 
 <style>
@@ -36,6 +50,7 @@
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
