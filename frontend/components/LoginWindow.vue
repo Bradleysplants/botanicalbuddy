@@ -20,7 +20,9 @@
           required
         />
         <v-btn type="submit" color="primary" :loading="authStore.loading" class="mr-2">Login</v-btn>
-        <v-btn @click="goToSignup" color="secondary">Signup</v-btn>
+        <NuxtLink to="/signup">
+          <v-btn color="secondary">Signup</v-btn>
+        </NuxtLink>
         <div v-if="authStore.error" class="error mt-2">{{ authStore.error }}</div>
       </v-form>
     </v-card-text>
@@ -30,21 +32,15 @@
 <script>
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router'; // Import useRouter
 
 export default {
   setup() {
     const username = ref('');
     const password = ref('');
     const authStore = useAuthStore();
-    const router = useRouter(); // Get the router instance
 
     const handleSubmit = () => {
       authStore.login(username.value, password.value);
-    };
-
-    const goToSignup = () => {
-      router.push('/signup'); // Navigate to the /signup route
     };
 
     return {
@@ -52,7 +48,6 @@ export default {
       password,
       handleSubmit,
       authStore,
-      goToSignup, // Expose the goToSignup method
     };
   },
 };

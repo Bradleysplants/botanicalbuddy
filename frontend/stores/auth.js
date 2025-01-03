@@ -1,135 +1,161 @@
+// auth.js
 import { defineStore } from 'pinia';
 import Cookies from 'js-cookie';
+import { ref, computed } from 'vue';
 
-export const useAuthStore = defineStore('auth', {
-    /**
-     * State properties:
-     * - user: null, the user object associated with the user (only available when isAuthenticated is true)
-     * - token: null, the access token for the authenticated user (only available when isAuthenticated is true)
-     * - error: null, the error message associated with the last login attempt (only available when isAuthenticated is false)
-     */
-  state: () => ({
-    user: null,
-    token: null,
-    error: null,
-  }),
-  getters: {
-    isAuthenticated: (state) => !!state.token,
-  },
-  actions: {
-    /**
-     * Attempt to log in to the application with the given username and password.
-     * After a successful login, the user object and access token are stored in the state.
-     * The access token is also stored in a secure cookie.
-     *
-     * @throws {Error} If the login attempt fails.
-     *
-     * @param {string} username - The username for the login attempt.
-     * @param {string} password - The password for the login attempt.
-     */
-    async login(username, password) {
-      this.error = null;
+export const useAuthStore = defineStore('auth', () => {
+  const user = ref(null);
+  const accessToken = ref(Cookies.get('access_token') || null);
+  const refreshToken = ref(Cookies.get('refresh_token') || null);
+  const error = ref(null);
+  const loading = ref(false);
+
+  const isAuthenticated = computed(() => !!accessToken.value);
+
+  const login = async (username, password) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await fetch('/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.detail || 'Login failed. Please try again.';
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      accessToken.value = data.access;
+      refreshToken.value = data.refresh;
+      Cookies.set('access_token', data.access, {
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Strict',
+      });
+      Cookies.set('refresh_token', data.refresh, {
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Strict',
+      });
+
+      // Fetch user details after successful login (optional)
+      await fetchUser();
+
+    } catch (err) {
+      console.error('Login error:', err);
+      error.value = err.message;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const signup = async (username, email, password) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await fetch('/signup/', { // Adjust URL if different
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.detail || 'Signup failed. Please try again.';
+        throw new Error(errorMessage);
+      }
+
+      // Optionally log the user in immediately after signup
+      // or redirect them to the login page.
+      // const loginResponse = await login(username, password);
+      // if (loginResponse) {
+      //   // Handle successful login after signup
+      // }
+
+      // For simplicity, we might just show a success message here
+      console.log('Signup successful!');
+
+    } catch (err) {
+      console.error('Signup error:', err);
+      error.value = err.message;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const logout = async () => {
+    const refreshTokenValue = refreshToken.value; // Store current refresh token
+
+    accessToken.value = null;
+    refreshToken.value = null;
+    user.value = null;
+    Cookies.remove('access_token');
+    Cookies.remove('refresh_token');
+
+    // Attempt to blacklist the refresh token on the backend
+    if (refreshTokenValue) {
       try {
-        // **Input Validation:**
-        if (!username || !password) {
-          throw new Error('Please enter both username and password.');
-        }
-        if (password.length < 8) { // Example password length validation
-          throw new Error('Password must be at least 8 characters long.');
-        }
-
-        const response = await fetch('/api/login/', {
+        const response = await fetch('/logout/', { // Your logout API endpoint
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refresh_token: refreshTokenValue }),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          const errorMessage = errorData.detail || 'Login failed. Please try again.';
-          throw new Error(errorMessage);
+          console.error('Error blacklisting refresh token:', response);
         }
-
-        const data = await response.json();
-        this.user = data.user;
-        this.token = data.token;
-
-        // **Secure Cookie Storage:**
-        Cookies.set('auth_token', this.token, {
-          secure: true, // Only transmit over HTTPS (essential for production)
-          httpOnly: true, // Prevent client-side JavaScript access
-          sameSite: 'Strict', // Mitigate CSRF attacks
-          // ... other cookie options (e.g., expires) ...
-        });
-
-      } catch (error) {
-        console.error('Login error:', error);
-        this.error = error.message;
+      } catch (err) {
+        console.error('Error sending logout request to backend:', err);
       }
-    },
-    /**
-     * Attempt to sign up a new user with the given username, email, and password.
-     * After a successful signup, the error property is set to null.
-     * The method throws an Error if the signup attempt fails.
-     *
-     * @throws {Error} If the signup attempt fails.
-     *
-     * @param {string} username - The username for the signup attempt.
-     * @param {string} email - The email address for the signup attempt.
-     * @param {string} password - The password for the signup attempt.
-     */
-    async signup(username, email, password) {
-      this.error = null;
+    }
+  };
+
+  const fetchUser = async () => {
+    if (isAuthenticated.value) {
       try {
-        // **Input Validation:**
-        if (!username || !email || !password) {
-          throw new Error('Please fill in all the required fields.');
-        }
-        if (!isValidEmail(email)) {
-          throw new Error('Please enter a valid email address.');
-        }
-        // ... other validation rules (e.g., password complexity)
-
-        const response = await fetch('/api/signup/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, password }),
+        const response = await fetch('/api/users/me/', { // Adjust URL for fetching user details
+          headers: {
+            'Authorization': `Bearer ${accessToken.value}`,
+          },
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          const errorMessage = errorData.detail || 'Signup failed. Please try again.';
-          throw new Error(errorMessage);
+        if (response.ok) {
+          user.value = await response.json();
+        } else {
+          console.error('Failed to fetch user details');
+          // Optionally handle token refresh or logout if fetching user fails
         }
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      }
+    }
+  };
 
-      } catch (error) {
-        console.error('Signup error:', error);
-        this.error = error.message;
-      }
-    },
-    /**
-     * Log out the current user and remove the secure cookie.
-     * After a successful logout, the user and token properties are set to null.
-     * The method throws an Error if the logout attempt fails.
-     *
-     * @throws {Error} If the logout attempt fails.
-     */
-    async logout() {
-      try {
-        await fetch('/api/logout/', { method: 'POST' });
-        this.user = null;
-        this.token = null;
-        Cookies.remove('auth_token'); 
-      } catch (error) {
-        console.error('Logout error:', error);
-        this.error = error.message;
-      }
-    },
-  },
+  // Initialize the store on load (optional - if you want to persist session across refreshes)
+  const initializeStore = () => {
+    accessToken.value = Cookies.get('access_token') || null;
+    refreshToken.value = Cookies.get('refresh_token') || null;
+    if (isAuthenticated.value) {
+      fetchUser();
+    }
+  };
+  initializeStore(); // Call it when the store is created
+
+  return {
+    user,
+    accessToken,
+    refreshToken,
+    error,
+    loading,
+    isAuthenticated,
+    login,
+    signup,
+    logout,
+    fetchUser,
+  };
 });
-
-// Helper function for email validation
-function isValidEmail(email) {
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailPattern.test(email);
-}

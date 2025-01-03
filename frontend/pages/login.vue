@@ -1,43 +1,45 @@
 <template>
-    <div class="container mx-auto p-4">
-      <h2 class="text-2xl font-bold mb-4">Login</h2>
-      <form @submit.prevent="login">
-        <div class="mb-4">
-          <label for="username" class="block text-gray-700 font-medium mb-2">Username:</label>
-          <input type="text" id="username" v-model="username" class="border border-gray-400 rounded px-3 py-2 w-full">
-        </div>
-        <div class="mb-4">
-          <label for="password" class="block text-gray-700 font-medium mb-2">Password:</label>
-          <input type="password" id="password" v-model="password" class="border border-gray-400 rounded px-3 py-2 w-full">
-        </div>
-        <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded">Login</button>
-      </form>
-    </div>
-  </template>
-  
-  <script>
-  import { ref } from 'vue';
-  import { useAuthStore } from '~/stores/auth'; 
-  import { useRouter } from 'nuxt/app'; 
-  
-  export default {
-    setup() {
-      const username = ref('');
-      const password = ref('');
-      const authStore = useAuthStore();
-      const router = useRouter();
-  
-      const login = async () => {
-        try {
-          await authStore.login(username.value, password.value);
-          router.push('/chat'); 
-        } catch (error) {
-          console.error('Login error:', error);
-          // Handle login error (e.g., display an error message)
+  <v-container fluid>
+    <v-row justify="center">
+      <v-col cols="12" sm="6" md="4" lg="3">
+        <LoginWindow @login-submitted="handleLogin" />
+      </v-col>
+    </v-row>
+  </v-container>
+</template>
+
+<script>
+import LoginWindow from '@/components/LoginWindow.vue'; // Adjust the path
+import { useAuthStore } from '@/stores/auth'; // Import your auth store
+import { useRouter } from 'vue-router';
+
+export default {
+  components: {
+    LoginWindow,
+  },
+  setup() {
+    const authStore = useAuthStore();
+    const router = useRouter();
+
+    const handleLogin = async ({ username, password }) => {
+      try {
+        await authStore.login(username, password);
+        if (authStore.isAuthenticated) {
+          router.push('/'); // Redirect on successful login
         }
-      };
-  
-      return { username, password, login };
-    },
-  };
-  </script>
+      } catch (error) {
+        // Error is handled and displayed within LoginWindow
+        console.error("Login failed in login.vue", error);
+      }
+    };
+
+    return {
+      handleLogin,
+    };
+  },
+};
+</script>
+
+<style scoped>
+/* You can add specific styling for the login page here if needed */
+</style>
