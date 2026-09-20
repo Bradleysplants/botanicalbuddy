@@ -1,0 +1,23 @@
+# Local PostgreSQL with the pgvector extension, for the Django backend.
+#   docker compose up -d db
+# Credentials come from your shell / a root-level .env (see botanicalbuddy/.env.example);
+# the defaults below are throwaway local-dev values.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-botanical_assistant}
+      POSTGRES_USER: ${DATABASE_USER:-botanical}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-change-me}
+    ports:
+      - "127.0.0.1:${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
