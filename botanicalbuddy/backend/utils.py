@@ -1,4 +1,3 @@
-import openai
 import os
 from openai import AsyncOpenAI
 import logging
@@ -17,10 +16,9 @@ async def get_embedding(text, model="text-embedding-ada-002"):
         list: The embedding as a list of floats.
     """
     try:
-        openai.api_key = os.environ.get("OPENAI_API_KEY")
-        client = AsyncOpenAI()
+        client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         response = await client.embeddings.create(input=[text], model=model)
-        return response["data"][0]["embedding"]
+        return response.data[0].embedding
     except Exception as e:
         logger.error(f"Error generating embedding: {e}")
         return None
