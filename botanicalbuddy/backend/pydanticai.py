@@ -52,9 +52,11 @@ class OpenAIAgent:
         if not self.openai_api_key:
             raise ValueError("OPENAI_API_KEY environment variable not found.")
 
-        self.model_name = os.environ.get("OPENAI_MODEL_NAME", "text-davinci-003")
+        # NOTE: the previous default, "text-davinci-003", has been retired by OpenAI
+        # and the legacy Completions API it used no longer exists in openai>=1.0.
+        self.model_name = os.environ.get("OPENAI_MODEL_NAME", "gpt-4o-mini")
         self.system_message = os.environ.get("OPENAI_SYSTEM_MESSAGE", "You are a helpful botanical assistant.")
-        openai.api_key = self.openai_api_key
+        self.client = openai.AsyncOpenAI(api_key=self.openai_api_key)
 
     async def run_inference(self, plant_data: PlantData, user_query: str) -> InferenceResult:
         try:
@@ -72,23 +74,26 @@ class OpenAIAgent:
             User Query: {user_query}
             """
 
-            response = await openai.Completion.acreate(
+            response = await self.client.chat.completions.create(
                 model=self.model_name,
-                prompt=prompt,
+                messages=[
+                    {"role": "system", "content": self.system_message},
+                    {"role": "user", "content": prompt},
+                ],
                 max_tokens=250,
             )
-            inference = response.choices[0].text.strip()
+            inference = (response.choices[0].message.content or "").strip()
             return InferenceResult(answer=inference, system_message=self.system_message)
 
-        except openai.APIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            return InferenceResult(answer=f"An OpenAI API error occurred: {e}", system_message=self.system_message)
         except openai.RateLimitError as e:
             logger.error(f"OpenAI API rate limit exceeded: {e}")
             return InferenceResult(answer="OpenAI API rate limit exceeded.", system_message=self.system_message)
-        except openai.InvalidRequestError as e:
+        except openai.BadRequestError as e:
             logger.error(f"Invalid OpenAI API request: {e}")
             return InferenceResult(answer="Invalid OpenAI API request.", system_message=self.system_message)
+        except openai.APIError as e:
+            logger.error(f"OpenAI API error: {e}")
+            return InferenceResult(answer=f"An OpenAI API error occurred: {e}", system_message=self.system_message)
         except Exception as e:
             logger.exception(f"An unexpected error occurred: {e}") # Log full traceback
             return InferenceResult(answer=f"An unexpected error occurred: {e}", system_message=self.system_message)

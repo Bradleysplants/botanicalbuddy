@@ -1,5 +1,6 @@
 # backend/views.py
 import logging
+from functools import lru_cache
 import json
 import os
 from io import BytesIO
@@ -27,7 +28,17 @@ from .pydanticai import PlantData, create_agent, InferenceResult, AIAgent
 from .utils import calculate_cosine_similarity, get_embedding
 
 logger = logging.getLogger(__name__)
-agent: AIAgent = create_agent()
+
+
+@lru_cache(maxsize=1)
+def get_agent() -> AIAgent:
+    """Create the configured AI agent on first use (not at import time).
+
+    Importing this module must not require API keys; only answering a
+    question that falls through to the AI agent does.
+    """
+    return create_agent()
+
 nlp = spacy.load("en_core_web_sm")
 
 # --- Intent Keywords (Lowercase Lemmas) ---
@@ -102,8 +113,7 @@ def find_closest_match_nlp(text, options):
 
 async def get_similar_qa_entry(question_vector, plant, threshold=0.75):
     """Retrieves a similar Q&A entry from the database."""
-    qa_entries = await QAEntry.objects.filter(plant=plant).aall()
-    for entry in qa_entries:
+    async for entry in QAEntry.objects.filter(plant=plant):
         similarity = calculate_cosine_similarity(question_vector, entry.question_vector)
         if similarity >= threshold:
             return entry
@@ -278,7 +288,7 @@ async def ask_botanical_question(request):
         ).afirst()
 
         if not django_plant:
-            plant_names = [plant.common_name for plant in await DjangoPlantData.objects.aall()]
+            plant_names = [plant.common_name async for plant in DjangoPlantData.objects.all() if plant.common_name]
             closest_match = find_closest_match_nlp(plant_name, plant_names)
             if closest_match:
                 django_plant = await DjangoPlantData.objects.aget(common_name=closest_match)
@@ -320,7 +330,7 @@ async def ask_botanical_question(request):
                 water_requirements=django_plant.water_requirements,
                 sunlight_requirements=django_plant.sunlight_requirements,
             )
-            inference_result = await agent.run_inference(plant_data, user_query)
+            inference_result = await get_agent().run_inference(plant_data, user_query)
             if isinstance(inference_result, InferenceResult):
                 answer = inference_result.answer
                 await create_qa_entry(django_plant, user_query, None, answer) # Consider generating embedding for ollama too

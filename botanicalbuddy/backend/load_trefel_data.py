@@ -1,6 +1,7 @@
 import os
 import django
 import requests
+from asgiref.sync import async_to_sync
 import json
 import logging
 from tqdm import tqdm
@@ -56,7 +57,7 @@ def save_plant_to_db(plant_data: Dict[str, Any]):
         description = details.get("specifications", {}).get("description")
         if description:
             try:
-                vector_data = get_embedding(description)
+                vector_data = async_to_sync(get_embedding)(description)
             except Exception as e:
                 logger.error(
                     f"Failed to generate embedding for plant {details.get('common_name')}: {e}"
