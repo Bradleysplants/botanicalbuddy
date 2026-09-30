@@ -1,63 +1,72 @@
 <template>
-  <v-app>
-    <v-main>
-      <v-container fluid>
-        <v-row align="center" justify="center">
-          <v-col cols="12" sm="8" md="6" lg="4" xl="3">
-            <v-card class="elevation-12">
-              <v-toolbar color="green" dark flat>
-                <v-toolbar-title>Botanical Buddy</v-toolbar-title>
-              </v-toolbar>
-              <v-card-text>
-                <v-row align="center" justify="center">
-                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
-                    <h1 class="text-center">Welcome to Botanical Buddy</h1>
-                  </v-col>
-                </v-row>
-                <v-row align="center" justify="center">
-                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
-                    <v-img src="https://source.unsplash.com/1600x900/?plants" max-height="300" contain></v-img>
-                  </v-col>
-                </v-row>
-                <v-row align="center" justify="center">
-                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
-                    <p class="text-center">Botanical Buddy is your one-stop-shop for plant advice. Whether you're a seasoned gardener or just starting out, we've got you covered.</p>
-                  </v-col>
-                </v-row>
-                <v-row align="center" justify="center">
-                  <v-col cols="12" sm="12" md="12" lg="12" xl="12">
-                    <v-btn color="green" dark @click="$router.push('/Chat')">Chat with our Ai</v-btn>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-container>
-    </v-main>
-  </v-app>
+  <v-container>
+    <v-row>
+      <v-col cols="12">
+        <v-text-field
+          v-model="query"
+          label="Ask about a plant"
+          @keyup.enter="askQuestion"
+        ></v-text-field>
+      </v-col>
+      <v-col cols="12">
+        <v-btn @click="askQuestion" color="primary">Ask</v-btn>
+      </v-col>
+      <v-col cols="12">
+        <div v-if="response">
+          <h3>Response:</h3>
+          <p>{{ response }}</p>
+        </div>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script>
-import { useAuthStore } from '../stores/auth';
-
 export default {
   data() {
     return {
+      query: '',
+      response: ''
     };
   },
+  methods: {
+    async askQuestion() {
+      try {
+        const response = await fetch('/api/ask_botanist/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': this.getCookie('csrftoken') 
+          },
+          body: JSON.stringify({ query: this.query })
+        });
 
-  setup() {
-    const authStore = useAuthStore();
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
 
-    if (authStore.isAuthenticated) {
-      // Handle the case when the user is already authenticated
+        const data = await response.json();
+        this.response = data.response;
+      } catch (error) {
+        console.error('Error:', error);
+        this.response = 'An error occurred while fetching the response.';
+      }
+    },
+    getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
     }
-
-    return {
-      authStore,
-    };
-  },
+  }
 };
 </script>
 

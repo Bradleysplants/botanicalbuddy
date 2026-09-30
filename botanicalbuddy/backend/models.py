@@ -1,8 +1,16 @@
-# backend/models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from pgvector.django import VectorField
 from django.core.validators import validate_email, RegexValidator
+from django.conf import settings
+import google.generativeai as genai
+import os
+
+# Configure genai with the API key from settings
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+
+# Use the textembedding-gecko@004 model for embeddings
+embedding_model = genai
 
 class User(AbstractUser):
     # Basic Information
@@ -26,14 +34,14 @@ class User(AbstractUser):
     # Add related_name to avoid reverse accessor clashes
     groups = models.ManyToManyField(
         'auth.Group',
-        related_name='backend_user_groups',  # Add related_name
+        related_name='backend_user_groups',
         blank=True,
         help_text='The groups this user belongs to.',
         verbose_name='groups',
     )
     user_permissions = models.ManyToManyField(
         'auth.Permission',
-        related_name='backend_user_permissions',  # Add related_name
+        related_name='backend_user_permissions',
         blank=True,
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
@@ -61,7 +69,7 @@ class PlantData(models.Model):
     soil_type = models.CharField(max_length=255, blank=True, null=True)
     water_requirements = models.CharField(max_length=255, blank=True, null=True)
     sunlight_requirements = models.CharField(max_length=255, blank=True, null=True)
-    vector_data = VectorField(dimensions=1536, null=True, blank=True)
+    vector_data = VectorField(dimensions=768, null=True, blank=True)
     image = models.ImageField(upload_to='plant_images/', blank=True, null=True)
     common_diseases = models.JSONField(blank=True, null=True)
     common_pests = models.JSONField(blank=True, null=True)
@@ -72,17 +80,27 @@ class PlantData(models.Model):
 class QAEntry(models.Model):
     plant = models.ForeignKey(PlantData, on_delete=models.CASCADE, related_name='qa_entries')
     question_text = models.TextField()
-    question_vector = VectorField(dimensions=1536, null=True, blank=True)
+    question_vector = VectorField(dimensions=768, null=True, blank=True)
     answer_text = models.TextField()
-    answer_vector = VectorField(dimensions=1536, null=True, blank=True)
+    answer_vector = VectorField(dimensions=768, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Q&A for {self.plant.common_name}: {self.question_text[:50]}..."
+    
+    def save(self, *args, **kwargs):
+        # Generate embeddings only if the text has changed
+        if self._state.adding or (self.pk and (self.question_text != QAEntry.objects.get(pk=self.pk).question_text)):
+            self.question_vector = get_embedding(self.question_text)
+
+        if self._state.adding or (self.pk and (self.answer_text != QAEntry.objects.get(pk=self.pk).answer_text)):
+            self.answer_vector = get_embedding(self.answer_text)
+
+        super().save(*args, **kwargs)
 
 class VectorDatabase(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    vector_data = VectorField(dimensions=1536, null=True, blank=True)
+    vector_data = VectorField(dimensions=768, null=True, blank=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -93,6 +111,7 @@ class VectorDatabase(models.Model):
 class Conversation(models.Model):
     participants = models.ManyToManyField(User, related_name='conversations')
     created_at = models.DateTimeField(auto_now_add=True)
+    context = models.JSONField(blank=True, null=True) # Store conversation history here
 
     def __str__(self):
         return f"Conversation with {', '.join(user.username for user in self.participants.all())}"
@@ -106,3 +125,16 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+def get_embedding(text):
+    """Generates an embedding for a given text using the configured embedding model."""
+    try:
+        result = embedding_model.embed_content(
+            model="models/embedding-gecko-004",
+            content=text,
+            task_type="semantic_similarity",
+        )
+        return result['embedding']
+    except Exception as e:
+        print(f"Error generating embedding: {e}")
+        return None
