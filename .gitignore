@@ -1,5 +1,39 @@
+# Secrets / local env
 .env
-node_modules
-.venv/bin
-.venv/lib
-.venv
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build output / caches
+.nuxt/
+.output/
+.data/
+.nitro/
+.cache/
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+staticfiles/
+static/
+
+# Local databases, uploads and model weights
+*.sqlite3
+media/
+plant_images/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.gguf
+
+# Logs / OS / editor
+logs/
+*.log
+.DS_Store
+.idea/
+.vscode/

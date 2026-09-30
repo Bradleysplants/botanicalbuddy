@@ -70,11 +70,11 @@ WSGI_APPLICATION = 'botanicalbuddy.wsgi.application'  # Replace with your projec
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DATABASE_ENGINE'),
+        'ENGINE': os.environ.get('DATABASE_ENGINE', 'django.db.backends.postgresql'),
         'NAME': os.environ.get('DATABASE_NAME'),
         'USER': os.environ.get('DATABASE_USER'),
         'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
-        'HOST': os.environ.get('DATABASE_HOST'),
+        'HOST': os.environ.get('DATABASE_HOST', 'localhost'),
         'PORT': int(os.environ.get('DATABASE_PORT', 5432)),
     }
 }
